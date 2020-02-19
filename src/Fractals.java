@@ -1,6 +1,10 @@
+// done add scaling
+// done add controls
+// done add color mapping
 // todo block output https://docs.oracle.com/javafx/2/image_ops/jfxpub-image_ops.htm
 // todo resize capability
 // todo sigmoid correction + distribution stats https://en.wikipedia.org/wiki/Sigmoid_function
+// todo mouse dragging
 
 
 import javafx.application.Application;
@@ -8,6 +12,7 @@ import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.image.ImageView;
@@ -16,6 +21,7 @@ import javafx.scene.image.WritableImage;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Text;
 import javafx.stage.Stage;
 
 
@@ -24,7 +30,18 @@ public class Fractals extends Application {
         launch(args);
     }
 
-    public static int convergence(double c, double ci, int maxIter) {
+    int pictureWidth = 800;
+    int pictureHeight = 600;
+    double scalingRatio = .1; // 10%
+    double cMax = 1.1;
+    double cMin = -2.2;
+    double ciMax = (cMax - cMin) / pictureWidth * pictureHeight * .5;
+    double ciMin = -ciMax;
+    final int maxIter = 1024;
+    tupleRGB[] colorsRGB = initColors();
+
+
+    private static int convergence(double c, double ci, int maxIter) {
         double z = 0;
         double zi = 0;
         double zT = 0;
@@ -40,13 +57,14 @@ public class Fractals extends Application {
         return maxIter;
     }
 
-    public static WritableImage fillImage(int width, int height, double cMin, double cMax, double ciMin, double ciMax, int maxIter) {
+    private WritableImage fillImage(int width, int height, double cMin, double cMax, double ciMin, double ciMax, int maxIter) {
         WritableImage writableImage = new WritableImage(width, height);
         PixelWriter pixelWriter = writableImage.getPixelWriter();
 
         int[][] buffer = new int[width][height];
         double cStep = (cMax - cMin) / width;
         double ciStep = (ciMax - ciMin) / height;
+
 
         // get raw data with log correction
         for (int i = 0; i < width; i++) {
@@ -76,26 +94,90 @@ public class Fractals extends Application {
         // image output
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                pixelWriter.setColor(i, j, Color.grayRgb(buffer[i][j]));
+                // pixelWriter.setColor(i, j, Color.grayRgb(buffer[i][j]));
+                pixelWriter.setColor(i, j, Color.rgb(colorsRGB[buffer[i][j]].red, colorsRGB[buffer[i][j]].green, colorsRGB[buffer[i][j]].blue));
             }
         }
         return writableImage;
     }
 
     ImageView imageView;
-    double cMin = -2.2;
-    double cMax = 1.1;
-    double ciMin = -1.2;
-    double ciMax = 1.2;
+    Text text;
+
+    private class tupleRGB {
+        public int red, green, blue;
+
+        public tupleRGB(int red, int green, int blue) {
+            this.red = red;
+            this.green = green;
+            this.blue = blue;
+        }
+
+        @Override
+        public String toString() {
+            return "tupleRGB{" +
+                    "red=" + red +
+                    ", green=" + green +
+                    ", blue=" + blue +
+                    '}';
+        }
+    }
+
+    private tupleRGB spectralColor(double lambda) // RGB <0,1> <- lambda l <400,700> [nm]
+    {
+        double t;
+        double red = 0.0, green = 0.0, blue = 0.0;
+
+        // red convolution
+        if ((lambda >= 400.0) && (lambda < 410.0)) {
+            t = (lambda - 400.0) / (410.0 - 400.0);
+            red = +(0.33 * t) - (0.20 * t * t);
+        } else if ((lambda >= 410.0) && (lambda < 475.0)) {
+            t = (lambda - 410.0) / (475.0 - 410.0);
+            red = 0.14 - (0.13 * t * t);
+        } else if ((lambda >= 545.0) && (lambda < 595.0)) {
+            t = (lambda - 545.0) / (595.0 - 545.0);
+            red = +(1.98 * t) - (t * t);
+        } else if ((lambda >= 595.0) && (lambda < 650.0)) {
+            t = (lambda - 595.0) / (650.0 - 595.0);
+            red = 0.98 + (0.06 * t) - (0.40 * t * t);
+        } else if ((lambda >= 650.0) && (lambda < 700.0)) {
+            t = (lambda - 650.0) / (700.0 - 650.0);
+            red = 0.65 - (0.84 * t) + (0.20 * t * t);
+        }
+        // green convolution
+        if ((lambda >= 415.0) && (lambda < 475.0)) {
+            t = (lambda - 415.0) / (475.0 - 415.0);
+            green = +(0.80 * t * t);
+        } else if ((lambda >= 475.0) && (lambda < 590.0)) {
+            t = (lambda - 475.0) / (590.0 - 475.0);
+            green = 0.8 + (0.76 * t) - (0.80 * t * t);
+        } else if ((lambda >= 585.0) && (lambda < 639.0)) {
+            t = (lambda - 585.0) / (639.0 - 585.0);
+            green = 0.84 - (0.84 * t);
+        }
+        // blue convolution
+        if ((lambda >= 400.0) && (lambda < 475.0)) {
+            t = (lambda - 400.0) / (475.0 - 400.0);
+            blue = +(2.20 * t) - (1.50 * t * t);
+        } else if ((lambda >= 475.0) && (lambda < 560.0)) {
+            t = (lambda - 475.0) / (560.0 - 475.0);
+            blue = 0.7 - (t) + (0.30 * t * t);
+        }
+        return new tupleRGB((int) (255 * red), (int) (255 * green), (int) (255 * blue));
+    }
+
+    private tupleRGB[] initColors() {
+        colorsRGB = new tupleRGB[256];
+        for (int i = 0; i < colorsRGB.length; i++) {
+            colorsRGB[i] = spectralColor(400.0 + (700.0 - 400.0) * i / 255.0);
+        }
+        return colorsRGB;
+    }
 
     @Override
     public void start(Stage stage) {
         stage.setTitle("Fractals");
-
-        int width = 800;
-        int height = 600;
-        int maxIter = 1024;
-        double scalingRatio = .1; // 10%
 
         Button zoomInButton = new Button("Zoom In (+)");
         zoomInButton.setOnAction(new EventHandler<ActionEvent>() {
@@ -114,7 +196,8 @@ public class Fractals extends Application {
                         cMax = newcMax;
                         ciMin = newciMin;
                         ciMax = newciMax;
-                        imageView.setImage(fillImage(width, height, cMin, cMax, ciMin, ciMax, maxIter));
+                        imageView.setImage(fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter));
+                        text.setText("cMin: " + cMin + " cMax: " + cMax + " ciMin: " + ciMin + " ciMax: " + ciMax);
                     }
                 }.run();
             }
@@ -137,7 +220,8 @@ public class Fractals extends Application {
                         cMax = newcMax;
                         ciMin = newciMin;
                         ciMax = newciMax;
-                        imageView.setImage(fillImage(width, height, cMin, cMax, ciMin, ciMax, maxIter));
+                        imageView.setImage(fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter));
+                        text.setText("cMin: " + cMin + " cMax: " + cMax + " ciMin: " + ciMin + " ciMax: " + ciMax);
                     }
                 }.run();
             }
@@ -156,8 +240,8 @@ public class Fractals extends Application {
                 new Runnable() {
                     @Override
                     public void run() {
-                        double newCenter = cMin + (cMax - cMin) * mouseEvent.getSceneX() / width;
-                        double newiCenter = ciMin + (ciMax - ciMin) * mouseEvent.getSceneY() / height;
+                        double newCenter = cMin + (cMax - cMin) * mouseEvent.getSceneX() / pictureWidth;
+                        double newiCenter = ciMin + (ciMax - ciMin) * mouseEvent.getSceneY() / pictureHeight;
                         double newcMin = newCenter - (cMax - cMin) * scalingRatio / 2;
                         double newcMax = newCenter + (cMax - cMin) * scalingRatio / 2;
                         double newciMin = newiCenter - (ciMax - ciMin) * scalingRatio / 2;
@@ -166,19 +250,25 @@ public class Fractals extends Application {
                         cMax = newcMax;
                         ciMin = newciMin;
                         ciMax = newciMax;
-                        imageView.setImage(fillImage(width, height, cMin, cMax, ciMin, ciMax, maxIter));
+                        imageView.setImage(fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter));
+                        text.setText("cMin: " + cMin + " cMax: " + cMax + " ciMin: " + ciMin + " ciMax: " + ciMax);
                     }
                 }.run();
             }
         };
 
-        WritableImage writableImage = fillImage(width, height, cMin, cMax, ciMin, ciMax, maxIter);
+        WritableImage writableImage = fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter);
         imageView = new ImageView(writableImage);
+
+        text = new Text();
+        text.setText("cMin: " + cMin + " cMax: " + cMax + " ciMin: " + ciMin + " ciMax: " + ciMax);
 
         HBox hBox = new HBox();
         hBox.setSpacing(10);
+        hBox.setAlignment(Pos.CENTER_LEFT);
         hBox.getChildren().add(zoomInButton);
         hBox.getChildren().add(zoomOutButton);
+        hBox.getChildren().add(text);
 
         // add listeners
         imageView.addEventFilter(MouseEvent.MOUSE_CLICKED, mouseClickOnImageEventHandler);
