@@ -4,7 +4,7 @@
 // done distribution stats
 // todo block output https://docs.oracle.com/javafx/2/image_ops/jfxpub-image_ops.htm
 // todo resize capability
-// todo sigmoid correction https://en.wikipedia.org/wiki/Sigmoid_function
+// done gamma correction
 // todo mouse dragging
 
 
@@ -83,6 +83,7 @@ public class Fractals extends Application {
             }
         }
 
+
         // get stats
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
@@ -91,23 +92,27 @@ public class Fractals extends Application {
         }
 
         // contrast adjustment
-        int buf_min = buffer[0][0];
-        int buf_max = buffer[0][0];
+        int bufMin = buffer[0][0];
+        int bufMax = buffer[0][0];
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                if (buffer[i][j] > buf_max) {
-                    buf_max = buffer[i][j];
-                } else if (buffer[i][j] < buf_min) {
-                    buf_min = buffer[i][j];
+                if (buffer[i][j] > bufMax) {
+                    bufMax = buffer[i][j];
+                } else if (buffer[i][j] < bufMin) {
+                    bufMin = buffer[i][j];
                 }
             }
         }
-        System.out.print("buf_min: " + buf_min);
-        System.out.println(" buf_max: " + buf_max);
+        System.out.print("bufMin: " + bufMin);
+        System.out.println(" bufMax: " + bufMax);
 
+        double gamma = 2.2;
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                buffer[i][j] = (int) Math.round((double) (buffer[i][j] - buf_min) / (buf_max - buf_min) * 255); // byte color
+                // dynamic range adjustment
+                // buffer[i][j] = (int) Math.round((double) (buffer[i][j] - bufMin) / (bufMax - bufMin) * 255);
+                // gamma correction
+                buffer[i][j] = (int) Math.round(255.0 * Math.pow((double) buffer[i][j] / bufMax, 1.0 / gamma));
             }
         }
 
