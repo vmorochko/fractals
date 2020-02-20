@@ -73,7 +73,7 @@ public class Fractals extends Application {
         // get raw data
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                int currentValue = (int) ((convergence(cMin + i * cStep, ciMin + j * ciStep, maxIter)));
+                int currentValue = convergence(cMin + i * cStep, ciMin + j * ciStep, maxIter);
                 // buffer[i][j] = (int) (Math.log(convergence(cMin + i * cStep, ciMin + j * ciStep, maxIter)) * 30);
                 if (currentValue == maxIter) {
                     buffer[i][j] = 0;
@@ -107,7 +107,7 @@ public class Fractals extends Application {
 
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                buffer[i][j] = (int) ((double) (buffer[i][j] - buf_min) / (buf_max - buf_min) * 255); // byte color
+                buffer[i][j] = (int) Math.round((double) (buffer[i][j] - buf_min) / (buf_max - buf_min) * 255); // byte color
             }
         }
 
@@ -202,7 +202,7 @@ public class Fractals extends Application {
             t = (lambda - 475.0) / (560.0 - 475.0);
             blue = 0.7 - (t) + (0.30 * t * t);
         }
-        return new tupleRGB((int) (255 * red), (int) (255 * green), (int) (255 * blue));
+        return new tupleRGB((int) Math.round(255 * red), (int) Math.round(255 * green), (int) Math.round(255 * blue));
     }
 
     private tupleRGB[] initColors() {
