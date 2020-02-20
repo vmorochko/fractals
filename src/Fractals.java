@@ -1,9 +1,10 @@
-// done add scaling
-// done add controls
-// done add color mapping
+// done scaling
+// done controls
+// done color mapping
+// done distribution stats
 // todo block output https://docs.oracle.com/javafx/2/image_ops/jfxpub-image_ops.htm
 // todo resize capability
-// todo sigmoid correction + distribution stats https://en.wikipedia.org/wiki/Sigmoid_function
+// todo sigmoid correction https://en.wikipedia.org/wiki/Sigmoid_function
 // todo mouse dragging
 
 
@@ -37,11 +38,12 @@ public class Fractals extends Application {
     double cMin = -2.2;
     double ciMax = (cMax - cMin) / pictureWidth * pictureHeight * .5;
     double ciMin = -ciMax;
-    final int maxIter = 1024;
+    final int maxIter = 4096;
     tupleRGB[] colorsRGB = initColors();
+    int[] stats = new int[maxIter];
 
 
-    private static int convergence(double c, double ci, int maxIter) {
+    private int convergence(double c, double ci, int maxIter) {
         double z = 0;
         double zi = 0;
         double zT = 0;
@@ -66,10 +68,23 @@ public class Fractals extends Application {
         double ciStep = (ciMax - ciMin) / height;
 
 
-        // get raw data with log correction
+        // get raw data
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                buffer[i][j] = (int) (Math.log(convergence(cMin + i * cStep, ciMin + j * ciStep, maxIter)) * 36.9329931);
+                int currentValue = (int) ((convergence(cMin + i * cStep, ciMin + j * ciStep, maxIter)));
+                // buffer[i][j] = (int) (Math.log(convergence(cMin + i * cStep, ciMin + j * ciStep, maxIter)) * 30);
+                if (currentValue == maxIter) {
+                    buffer[i][j] = 0;
+                } else {
+                    buffer[i][j] = currentValue;
+                }
+            }
+        }
+
+        // get stats
+        for (int i = 0; i < width; i++) {
+            for (int j = 0; j < height; j++) {
+                stats[buffer[i][j]]++;
             }
         }
 
@@ -85,6 +100,9 @@ public class Fractals extends Application {
                 }
             }
         }
+        System.out.print("buf_min: " + buf_min);
+        System.out.println(" buf_max: " + buf_max);
+
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
                 buffer[i][j] = (int) ((double) (buffer[i][j] - buf_min) / (buf_max - buf_min) * 255); // byte color
@@ -101,7 +119,25 @@ public class Fractals extends Application {
         return writableImage;
     }
 
+    private WritableImage fillStatsImage(int[] stats) {
+        int maxColor = 0;
+        for (int i : stats) {
+            if (i > maxColor) {
+                maxColor = i;
+            }
+        }
+        WritableImage writableImage = new WritableImage(256, 256);
+        PixelWriter pixelWriter = writableImage.getPixelWriter();
+        for (int i = 0; i < writableImage.getWidth() - 1; i++) {
+            for (int j = (int) (255 - (double) stats[i] / maxColor * 255); j < 256; j++) {
+                pixelWriter.setColor(i, j, Color.BLACK);
+            }
+        }
+        return writableImage;
+    }
+
     ImageView imageView;
+    ImageView statsImageView;
     Text text;
 
     private class tupleRGB {
@@ -198,6 +234,7 @@ public class Fractals extends Application {
                         ciMax = newciMax;
                         imageView.setImage(fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter));
                         text.setText("cMin: " + cMin + " cMax: " + cMax + " ciMin: " + ciMin + " ciMax: " + ciMax);
+                        statsImageView.setImage(fillStatsImage(stats));
                     }
                 }.run();
             }
@@ -222,6 +259,7 @@ public class Fractals extends Application {
                         ciMax = newciMax;
                         imageView.setImage(fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter));
                         text.setText("cMin: " + cMin + " cMax: " + cMax + " ciMin: " + ciMin + " ciMax: " + ciMax);
+                        statsImageView.setImage(fillStatsImage(stats));
                     }
                 }.run();
             }
@@ -252,6 +290,7 @@ public class Fractals extends Application {
                         ciMax = newciMax;
                         imageView.setImage(fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter));
                         text.setText("cMin: " + cMin + " cMax: " + cMax + " ciMin: " + ciMin + " ciMax: " + ciMax);
+                        statsImageView.setImage(fillStatsImage(stats));
                     }
                 }.run();
             }
@@ -282,5 +321,16 @@ public class Fractals extends Application {
         Scene scene = new Scene(borderPane);
         stage.setScene(scene);
         stage.show();
+
+        // tmp stats
+        Stage statsStage = new Stage();
+        statsStage.setTitle("stats");
+        WritableImage statsImage = fillStatsImage(stats);
+        statsImageView = new ImageView(statsImage);
+        BorderPane statsBorderPane = new BorderPane();
+        statsBorderPane.setCenter(statsImageView);
+        Scene statsScene = new Scene(statsBorderPane);
+        statsStage.setScene(statsScene);
+        statsStage.show();
     }
 }
