@@ -42,7 +42,7 @@ public class Fractals extends Application {
     double ciMin = -ciMax;
     final int maxIter = 4096;
     tupleRGB[] colorsRGB = initColors();
-    int[] stats = new int[maxIter];
+    int[] stats = new int[256];
 
 
     private int convergence(double c, double ci, int maxIter) {
@@ -58,7 +58,8 @@ public class Fractals extends Application {
             z = zT + c;
             zi = ziT + ci;
         }
-        return maxIter;
+        // return maxIter;
+        return 0;
     }
 
     private WritableImage fillImage(int width, int height, double cMin, double cMax, double ciMin, double ciMax, int maxIter) {
@@ -73,21 +74,8 @@ public class Fractals extends Application {
         // get raw data
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                int currentValue = convergence(cMin + i * cStep, ciMin + j * ciStep, maxIter);
+                buffer[i][j] = convergence(cMin + i * cStep, ciMin + j * ciStep, maxIter);
                 // buffer[i][j] = (int) (Math.log(convergence(cMin + i * cStep, ciMin + j * ciStep, maxIter)) * 30);
-                if (currentValue == maxIter) {
-                    buffer[i][j] = 0;
-                } else {
-                    buffer[i][j] = currentValue;
-                }
-            }
-        }
-
-
-        // get stats
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
-                stats[buffer[i][j]]++;
             }
         }
 
@@ -105,20 +93,23 @@ public class Fractals extends Application {
         }
         System.out.print("bufMin: " + bufMin);
         System.out.println(" bufMax: " + bufMax);
-
         double gamma = 2.2;
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
+                double tmp = buffer[i][j];
                 // dynamic range adjustment
-                // buffer[i][j] = (int) Math.round((double) (buffer[i][j] - bufMin) / (bufMax - bufMin) * 255);
+                tmp = (tmp - bufMin) / (bufMax - bufMin);
                 // gamma correction
-                buffer[i][j] = (int) Math.round(255.0 * Math.pow((double) buffer[i][j] / bufMax, 1.0 / gamma));
+                tmp = Math.pow(tmp, 1.0 / gamma);
+                buffer[i][j] = (int) Math.round(tmp * 255);
             }
         }
 
         // image output
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
+                // get stats
+                stats[buffer[i][j]]++;
                 // pixelWriter.setColor(i, j, Color.grayRgb(buffer[i][j]));
                 pixelWriter.setColor(i, j, Color.rgb(colorsRGB[buffer[i][j]].red, colorsRGB[buffer[i][j]].green, colorsRGB[buffer[i][j]].blue));
             }
@@ -136,8 +127,10 @@ public class Fractals extends Application {
         WritableImage writableImage = new WritableImage(256, 256);
         PixelWriter pixelWriter = writableImage.getPixelWriter();
         for (int i = 0; i < writableImage.getWidth() - 1; i++) {
-            for (int j = (int) (255 - (double) stats[i] / maxColor * 255); j < 256; j++) {
-                pixelWriter.setColor(i, j, Color.BLACK);
+            // pixelWriter.setColor(i, (int) (255 - (double) stats[i] / maxColor * 255), Color.BLACK);
+            for (int j = (int) (255 - 255.0 * stats[i] / maxColor); j < 256; j++) {
+                // pixelWriter.setColor(i, j, Color.BLACK);
+                pixelWriter.setColor(i, j, Color.rgb(colorsRGB[i].red, colorsRGB[i].green, colorsRGB[i].blue));
             }
         }
         return writableImage;
@@ -154,15 +147,6 @@ public class Fractals extends Application {
             this.red = red;
             this.green = green;
             this.blue = blue;
-        }
-
-        @Override
-        public String toString() {
-            return "tupleRGB{" +
-                    "red=" + red +
-                    ", green=" + green +
-                    ", blue=" + blue +
-                    '}';
         }
     }
 
