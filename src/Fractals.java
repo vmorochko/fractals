@@ -9,6 +9,7 @@
 
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
@@ -24,6 +25,7 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
 
 
 public class Fractals extends Application {
@@ -214,6 +216,12 @@ public class Fractals extends Application {
     @Override
     public void start(Stage stage) {
         stage.setTitle("Fractals");
+        stage.setOnCloseRequest(new EventHandler<WindowEvent>() {
+            @Override
+            public void handle(WindowEvent e) {
+                Platform.exit();
+            }
+        });
 
         Button zoomInButton = new Button("Zoom In (+)");
         zoomInButton.setOnAction(new EventHandler<ActionEvent>() {
