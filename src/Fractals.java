@@ -2,7 +2,7 @@
 // done controls
 // done color mapping
 // done distribution stats
-// todo block output https://docs.oracle.com/javafx/2/image_ops/jfxpub-image_ops.htm
+// done block output https://docs.oracle.com/javafx/2/image_ops/jfxpub-image_ops.htm
 // todo resize capability
 // done gamma correction
 // todo mouse dragging
@@ -18,6 +18,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.image.ImageView;
+import javafx.scene.image.PixelFormat;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.MouseEvent;
@@ -26,6 +27,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
+
+import java.nio.ByteBuffer;
 
 
 public class Fractals extends Application {
@@ -43,6 +46,8 @@ public class Fractals extends Application {
     final int maxIter = 4096;
     tupleRGB[] colorsRGB = initColors();
     int[] stats = new int[256];
+    double gamma = 2.2;
+    byte[] imageData;
 
 
     private int convergence(double c, double ci, int maxIter) {
@@ -62,14 +67,29 @@ public class Fractals extends Application {
         return 0;
     }
 
+    private byte[] createImageData(int width, int height, int[][] buffer) {
+        byte[] imageData = new byte[width * height * 3];
+        int currentPos = 0;
+        for (int j = 0; j < height; j++) {
+            for (int i = 0; i < width; i++) {
+                imageData[currentPos] = (byte) colorsRGB[buffer[i][j]].red;
+                imageData[currentPos + 1] = (byte) colorsRGB[buffer[i][j]].green;
+                imageData[currentPos + 2] = (byte) colorsRGB[buffer[i][j]].blue;
+                currentPos += 3;
+            }
+        }
+        return imageData;
+    }
+
+
     private WritableImage fillImage(int width, int height, double cMin, double cMax, double ciMin, double ciMax, int maxIter) {
         WritableImage writableImage = new WritableImage(width, height);
         PixelWriter pixelWriter = writableImage.getPixelWriter();
+        PixelFormat<ByteBuffer> pixelFormat = PixelFormat.getByteRgbInstance();
 
         int[][] buffer = new int[width][height];
         double cStep = (cMax - cMin) / width;
         double ciStep = (ciMax - ciMin) / height;
-
 
         // get raw data
         for (int i = 0; i < width; i++) {
@@ -84,7 +104,7 @@ public class Fractals extends Application {
         int bufMax = buffer[0][0];
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                if (buffer[i][j] > bufMax) {
+                if (buffer[i][j] > bufMax && buffer[i][j] != maxIter) {
                     bufMax = buffer[i][j];
                 } else if (buffer[i][j] < bufMin) {
                     bufMin = buffer[i][j];
@@ -93,37 +113,47 @@ public class Fractals extends Application {
         }
         System.out.print("bufMin: " + bufMin);
         System.out.println(" bufMax: " + bufMax);
-        double gamma = 2.2;
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                double tmp = buffer[i][j];
+                // black point adjustment
+                if (buffer[i][j] == maxIter) {
+                    buffer[i][j] = bufMin;
+                }
                 // dynamic range adjustment
-                tmp = (tmp - bufMin) / (bufMax - bufMin);
+                double tmp = ((double) buffer[i][j] - bufMin) / (bufMax - bufMin);
                 // gamma correction
                 tmp = Math.pow(tmp, 1.0 / gamma);
+                // integer output
                 buffer[i][j] = (int) Math.round(tmp * 255);
+                // get stats
+                stats[buffer[i][j]]++;
             }
         }
 
+//        for (int i = 0; i < width; i++) {
+//            for (int j = 0; j < height; j++) {
+//                // get stats
+//                stats[buffer[i][j]]++;
+//                // pixelWriter.setColor(i, j, Color.grayRgb(buffer[i][j]));
+//                pixelWriter.setColor(i, j, Color.rgb(colorsRGB[buffer[i][j]].red, colorsRGB[buffer[i][j]].green, colorsRGB[buffer[i][j]].blue));
+//            }
+//        }
+
         // image output
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
-                // get stats
-                stats[buffer[i][j]]++;
-                // pixelWriter.setColor(i, j, Color.grayRgb(buffer[i][j]));
-                pixelWriter.setColor(i, j, Color.rgb(colorsRGB[buffer[i][j]].red, colorsRGB[buffer[i][j]].green, colorsRGB[buffer[i][j]].blue));
-            }
-        }
+        imageData = createImageData(width, height, buffer);
+        pixelWriter.setPixels(0, 0, width, height, pixelFormat, imageData, 0, width * 3);
+
         return writableImage;
     }
 
     private WritableImage fillStatsImage(int[] stats) {
-        int maxColor = 0;
-        for (int i : stats) {
-            if (i > maxColor) {
-                maxColor = i;
+        int maxColor = stats[0];
+        for (int i = 0; i < stats.length; i++) {
+            if (stats[i] > maxColor) {
+                maxColor = stats[i];
             }
         }
+
         WritableImage writableImage = new WritableImage(256, 256);
         PixelWriter pixelWriter = writableImage.getPixelWriter();
         for (int i = 0; i < writableImage.getWidth() - 1; i++) {
@@ -322,6 +352,7 @@ public class Fractals extends Application {
         // tmp stats
         Stage statsStage = new Stage();
         statsStage.setTitle("stats");
+        statsStage.setAlwaysOnTop(true);
         WritableImage statsImage = fillStatsImage(stats);
         statsImageView = new ImageView(statsImage);
         BorderPane statsBorderPane = new BorderPane();
