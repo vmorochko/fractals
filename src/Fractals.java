@@ -63,8 +63,8 @@ public class Fractals extends Application {
             z = zT + c;
             zi = ziT + ci;
         }
-        // return maxIter;
-        return 0;
+        return maxIter;
+        // return 0;
     }
 
     private byte[] createImageData(int width, int height, int[][] buffer) {
