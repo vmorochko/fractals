@@ -2,7 +2,7 @@
 // done controls
 // done color mapping
 // done distribution stats
-// done block output https://docs.oracle.com/javafx/2/image_ops/jfxpub-image_ops.htm
+// done block output
 // todo resize capability
 // done gamma correction
 // todo mouse dragging
@@ -47,7 +47,7 @@ public class Fractals extends Application {
     tupleRGB[] colorsRGB = initColors();
     int[] stats = new int[256];
     double gamma = 2.2;
-    byte[] imageData;
+    byte[] imageByteData;
 
 
     private int convergence(double c, double ci, int maxIter) {
@@ -67,7 +67,7 @@ public class Fractals extends Application {
         // return 0;
     }
 
-    private byte[] createImageData(int width, int height, int[][] buffer) {
+    private byte[] createImageByteData(int width, int height, int[][] buffer) {
         byte[] imageData = new byte[width * height * 3];
         int currentPos = 0;
         for (int j = 0; j < height; j++) {
@@ -140,8 +140,8 @@ public class Fractals extends Application {
 //        }
 
         // image output
-        imageData = createImageData(width, height, buffer);
-        pixelWriter.setPixels(0, 0, width, height, pixelFormat, imageData, 0, width * 3);
+        imageByteData = createImageByteData(width, height, buffer);
+        pixelWriter.setPixels(0, 0, width, height, pixelFormat, imageByteData, 0, width * 3);
 
         return writableImage;
     }
