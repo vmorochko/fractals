@@ -6,7 +6,7 @@
 // todo resize capability
 // done gamma correction
 // todo mouse dragging
-// todo add julia set
+// done add julia set
 
 
 import javafx.application.Application;
@@ -40,11 +40,11 @@ public class Fractals extends Application {
     int pictureWidth = 800;
     int pictureHeight = 600;
     double scalingRatio = .1; // 10%
-    double cMax = 1.1;
-    double cMin = -2.2;
+    double cMax = 2.2;
+    double cMin = -cMax;
     double ciMax = (cMax - cMin) / pictureWidth * pictureHeight * .5;
     double ciMin = -ciMax;
-    final int maxIter = 512;
+    final int maxIter = 1024;
     tupleRGB[] colorsRGB = initColors();
     int[] stats = new int[256];
     double gamma = 2.2;
@@ -54,21 +54,18 @@ public class Fractals extends Application {
     Text text;
 
 
-    private int convergence(double c, double ci, int maxIter) {
-        double z = 0;
-        double zi = 0;
-        double zT = 0;
-        double ziT = 0;
+    private int convergence(double z, double zi, double c, double ci, int maxIter) {
+        double zTemp;
         for (int i = 0; i < maxIter; i++) {
             if (z * z + zi * zi > 4.0) return i;
 
-            zT = z * z - (zi * zi);
-            ziT = 2 * (z * zi);
-            z = zT + c;
-            zi = ziT + ci;
+            zTemp = z * z - (zi * zi);
+            zi = 2 * (z * zi) + ci;
+            z = zTemp + c;
         }
         return maxIter;
     }
+
 
     private byte[] createImageByteData(int width, int height, int[][] buffer) {
         byte[] imageData = new byte[width * height * 3];
@@ -97,8 +94,9 @@ public class Fractals extends Application {
         // get raw data
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                buffer[i][j] = convergence(cMin + i * cStep, ciMin + j * ciStep, maxIter);
-                // buffer[i][j] = (int) (Math.log(convergence(cMin + i * cStep, ciMin + j * ciStep, maxIter)) * 30);
+                // buffer[i][j] = convergence(0,0,cMin + i * cStep, ciMin + j * ciStep, maxIter); // mandelbrot set
+                buffer[i][j] = convergence(cMin + i * cStep, ciMin + j * ciStep, -0.8, 0.156, maxIter); // julia set
+                // buffer[i][j] = (int) (Math.log(convergence(0,0,cMin + i * cStep, ciMin + j * ciStep, maxIter)) * 30);
             }
         }
 
