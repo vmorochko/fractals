@@ -6,6 +6,7 @@
 // todo resize capability
 // done gamma correction
 // todo mouse dragging
+// todo add julia set
 
 
 import javafx.application.Application;
@@ -43,11 +44,14 @@ public class Fractals extends Application {
     double cMin = -2.2;
     double ciMax = (cMax - cMin) / pictureWidth * pictureHeight * .5;
     double ciMin = -ciMax;
-    final int maxIter = 4096;
+    final int maxIter = 512;
     tupleRGB[] colorsRGB = initColors();
     int[] stats = new int[256];
     double gamma = 2.2;
     byte[] imageByteData;
+    ImageView imageView;
+    ImageView statsImageView;
+    Text text;
 
 
     private int convergence(double c, double ci, int maxIter) {
@@ -58,13 +62,12 @@ public class Fractals extends Application {
         for (int i = 0; i < maxIter; i++) {
             if (z * z + zi * zi > 4.0) return i;
 
-            ziT = 2 * (z * zi);
             zT = z * z - (zi * zi);
+            ziT = 2 * (z * zi);
             z = zT + c;
             zi = ziT + ci;
         }
         return maxIter;
-        // return 0;
     }
 
     private byte[] createImageByteData(int width, int height, int[][] buffer) {
@@ -111,8 +114,7 @@ public class Fractals extends Application {
                 }
             }
         }
-        System.out.print("bufMin: " + bufMin);
-        System.out.println(" bufMax: " + bufMax);
+        System.out.println("bufMin: " + bufMin + " bufMax: " + bufMax);
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
                 // black point adjustment
@@ -129,15 +131,6 @@ public class Fractals extends Application {
                 stats[buffer[i][j]]++;
             }
         }
-
-//        for (int i = 0; i < width; i++) {
-//            for (int j = 0; j < height; j++) {
-//                // get stats
-//                stats[buffer[i][j]]++;
-//                // pixelWriter.setColor(i, j, Color.grayRgb(buffer[i][j]));
-//                pixelWriter.setColor(i, j, Color.rgb(colorsRGB[buffer[i][j]].red, colorsRGB[buffer[i][j]].green, colorsRGB[buffer[i][j]].blue));
-//            }
-//        }
 
         // image output
         imageByteData = createImageByteData(width, height, buffer);
@@ -157,7 +150,6 @@ public class Fractals extends Application {
         WritableImage writableImage = new WritableImage(256, 256);
         PixelWriter pixelWriter = writableImage.getPixelWriter();
         for (int i = 0; i < writableImage.getWidth() - 1; i++) {
-            // pixelWriter.setColor(i, (int) (255 - (double) stats[i] / maxColor * 255), Color.BLACK);
             for (int j = (int) (255 - 255.0 * stats[i] / maxColor); j < 256; j++) {
                 // pixelWriter.setColor(i, j, Color.BLACK);
                 pixelWriter.setColor(i, j, Color.rgb(colorsRGB[i].red, colorsRGB[i].green, colorsRGB[i].blue));
@@ -165,10 +157,6 @@ public class Fractals extends Application {
         }
         return writableImage;
     }
-
-    ImageView imageView;
-    ImageView statsImageView;
-    Text text;
 
     private class tupleRGB {
         public int red, green, blue;
@@ -232,6 +220,19 @@ public class Fractals extends Application {
         return colorsRGB;
     }
 
+    private void adjustCoordinates(double centerWidth, double centerHeight, double scalingRatio) {
+        double newCenter = cMin + (cMax - cMin) * centerWidth; // 0.5 for center
+        double newiCenter = ciMin + (ciMax - ciMin) * centerHeight; // 0.5 for center
+        double newcMin = newCenter - (cMax - cMin) * scalingRatio / 2;
+        double newcMax = newCenter + (cMax - cMin) * scalingRatio / 2;
+        double newciMin = newiCenter - (ciMax - ciMin) * scalingRatio / 2;
+        double newciMax = newiCenter + (ciMax - ciMin) * scalingRatio / 2;
+        cMin = newcMin;
+        cMax = newcMax;
+        ciMin = newciMin;
+        ciMax = newciMax;
+    }
+
     @Override
     public void start(Stage stage) {
         stage.setTitle("Fractals");
@@ -249,16 +250,7 @@ public class Fractals extends Application {
                 new Runnable() {
                     @Override
                     public void run() {
-                        double newCenter = (cMin + cMax) * 0.5;
-                        double newiCenter = (ciMin + ciMax) * 0.5;
-                        double newcMin = newCenter - (cMax - cMin) * scalingRatio / 2;
-                        double newcMax = newCenter + (cMax - cMin) * scalingRatio / 2;
-                        double newciMin = newiCenter - (ciMax - ciMin) * scalingRatio / 2;
-                        double newciMax = newiCenter + (ciMax - ciMin) * scalingRatio / 2;
-                        cMin = newcMin;
-                        cMax = newcMax;
-                        ciMin = newciMin;
-                        ciMax = newciMax;
+                        adjustCoordinates(0.5, 0.5, scalingRatio);
                         imageView.setImage(fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter));
                         text.setText("cMin: " + cMin + " cMax: " + cMax + " ciMin: " + ciMin + " ciMax: " + ciMax);
                         statsImageView.setImage(fillStatsImage(stats));
@@ -274,16 +266,7 @@ public class Fractals extends Application {
                 new Runnable() {
                     @Override
                     public void run() {
-                        double newCenter = (cMin + cMax) * 0.5;
-                        double newiCenter = (ciMin + ciMax) * 0.5;
-                        double newcMin = newCenter - (cMax - cMin) / scalingRatio / 2;
-                        double newcMax = newCenter + (cMax - cMin) / scalingRatio / 2;
-                        double newciMin = newiCenter - (ciMax - ciMin) / scalingRatio / 2;
-                        double newciMax = newiCenter + (ciMax - ciMin) / scalingRatio / 2;
-                        cMin = newcMin;
-                        cMax = newcMax;
-                        ciMin = newciMin;
-                        ciMax = newciMax;
+                        adjustCoordinates(0.5, 0.5, 1.0 / scalingRatio);
                         imageView.setImage(fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter));
                         text.setText("cMin: " + cMin + " cMax: " + cMax + " ciMin: " + ciMin + " ciMax: " + ciMax);
                         statsImageView.setImage(fillStatsImage(stats));
@@ -305,16 +288,7 @@ public class Fractals extends Application {
                 new Runnable() {
                     @Override
                     public void run() {
-                        double newCenter = cMin + (cMax - cMin) * mouseEvent.getSceneX() / pictureWidth;
-                        double newiCenter = ciMin + (ciMax - ciMin) * mouseEvent.getSceneY() / pictureHeight;
-                        double newcMin = newCenter - (cMax - cMin) * scalingRatio / 2;
-                        double newcMax = newCenter + (cMax - cMin) * scalingRatio / 2;
-                        double newciMin = newiCenter - (ciMax - ciMin) * scalingRatio / 2;
-                        double newciMax = newiCenter + (ciMax - ciMin) * scalingRatio / 2;
-                        cMin = newcMin;
-                        cMax = newcMax;
-                        ciMin = newciMin;
-                        ciMax = newciMax;
+                        adjustCoordinates(mouseEvent.getSceneX() / pictureWidth, mouseEvent.getSceneY() / pictureHeight, scalingRatio);
                         imageView.setImage(fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter));
                         text.setText("cMin: " + cMin + " cMax: " + cMax + " ciMin: " + ciMin + " ciMax: " + ciMax);
                         statsImageView.setImage(fillStatsImage(stats));
