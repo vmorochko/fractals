@@ -7,6 +7,7 @@
 // done gamma correction
 // todo mouse dragging
 // done add julia set
+// todo expand controls
 
 
 import javafx.application.Application;
@@ -44,7 +45,7 @@ public class Fractals extends Application {
     double cMin = -cMax;
     double ciMax = (cMax - cMin) / pictureWidth * pictureHeight * .5;
     double ciMin = -ciMax;
-    final int maxIter = 1024;
+    final int maxIter = 4096;
     tupleRGB[] colorsRGB = initColors();
     int[] stats = new int[256];
     double gamma = 2.2;
@@ -94,37 +95,84 @@ public class Fractals extends Application {
         // get raw data
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                // buffer[i][j] = convergence(0,0,cMin + i * cStep, ciMin + j * ciStep, maxIter); // mandelbrot set
-                buffer[i][j] = convergence(cMin + i * cStep, ciMin + j * ciStep, -0.8, 0.156, maxIter); // julia set
-                // buffer[i][j] = (int) (Math.log(convergence(0,0,cMin + i * cStep, ciMin + j * ciStep, maxIter)) * 30);
+                // mandelbrot set
+                // buffer[i][j] = convergence(0, 0, cMin + i * cStep, ciMin + j * ciStep, maxIter);
+                // julia set
+                buffer[i][j] = convergence(cMin + i * cStep, ciMin + j * ciStep, -0.8, 0.156, maxIter);
             }
         }
 
-        // contrast adjustment
+        // find minimum value for black point adjustment
         int bufMin = buffer[0][0];
         int bufMax = buffer[0][0];
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                if (buffer[i][j] > bufMax && buffer[i][j] != maxIter) {
-                    bufMax = buffer[i][j];
-                } else if (buffer[i][j] < bufMin) {
+                if (buffer[i][j] < bufMin) {
                     bufMin = buffer[i][j];
+                } else if (buffer[i][j] > bufMax) {
+                    bufMax = buffer[i][j]; // for statistics
                 }
             }
         }
         System.out.println("bufMin: " + bufMin + " bufMax: " + bufMax);
+        // black point adjustment
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                // black point adjustment
                 if (buffer[i][j] == maxIter) {
                     buffer[i][j] = bufMin;
                 }
-                // dynamic range adjustment
-                double tmp = ((double) buffer[i][j] - bufMin) / (bufMax - bufMin);
-                // gamma correction
-                tmp = Math.pow(tmp, 1.0 / gamma);
+            }
+        }
+
+        // tmp transfer to floating point buffer
+        double[][] tmp = new double[width][height];
+        for (int i = 0; i < width; i++) {
+            for (int j = 0; j < height; j++) {
+                tmp[i][j] = (double) buffer[i][j];
+            }
+        }
+
+        // log scale
+        for (int i = 0; i < width; i++) {
+            for (int j = 0; j < height; j++) {
+                if (tmp[i][j] != 0.0) {
+                    tmp[i][j] = Math.log(tmp[i][j]) * 30; // todo
+                }
+            }
+        }
+
+        // find black and white points for contrast adjustment
+        double blackPoint = tmp[0][0];
+        double whitePoint = tmp[0][0];
+        for (int i = 0; i < width; i++) {
+            for (int j = 0; j < height; j++) {
+                if (tmp[i][j] > whitePoint) {
+                    whitePoint = tmp[i][j];
+                } else if (tmp[i][j] < blackPoint) {
+                    blackPoint = tmp[i][j];
+                }
+            }
+        }
+        System.out.println("blackPoint: " + blackPoint + " whitePoint: " + whitePoint);
+        // dynamic range adjustment
+        for (int i = 0; i < width; i++) {
+            for (int j = 0; j < height; j++) {
+                tmp[i][j] = (tmp[i][j] - blackPoint) / (whitePoint - blackPoint);
+            }
+        }
+
+        // gamma correction
+        for (int i = 0; i < width; i++) {
+            for (int j = 0; j < height; j++) {
+                tmp[i][j] = Math.pow(tmp[i][j], 1.0 / gamma);
+            }
+        }
+
+        // output to buffer
+        for (int i = 0; i < width; i++) {
+            for (int j = 0; j < height; j++) {
                 // integer output
-                buffer[i][j] = (int) Math.round(tmp * 255);
+                buffer[i][j] = (int) Math.round(tmp[i][j] * 255);
                 // get stats
                 stats[buffer[i][j]]++;
             }
