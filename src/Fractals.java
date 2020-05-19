@@ -7,7 +7,8 @@
 // done gamma correction
 // todo mouse dragging
 // done add julia set
-// todo expand controls
+// done expand controls
+// todo optimize recalculation
 
 
 import javafx.application.Application;
@@ -19,6 +20,7 @@ import javafx.event.EventHandler;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.PixelWriter;
@@ -53,6 +55,13 @@ public class Fractals extends Application {
     ImageView imageView;
     ImageView statsImageView;
     Text text;
+    Stage statsStageGlobal;
+
+
+    boolean isLogCorrectionNeeded = true;
+    boolean isGammaCorrectionNeeded = true;
+    boolean isDynamicRangeAdjustmentNeeded = true;
+    boolean isStatsNeeded = false;
 
 
     private int convergence(double z, double zi, double c, double ci, int maxIter) {
@@ -96,9 +105,9 @@ public class Fractals extends Application {
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
                 // mandelbrot set
-                // buffer[i][j] = convergence(0, 0, cMin + i * cStep, ciMin + j * ciStep, maxIter);
+                buffer[i][j] = convergence(0, 0, cMin + i * cStep, ciMin + j * ciStep, maxIter);
                 // julia set
-                buffer[i][j] = convergence(cMin + i * cStep, ciMin + j * ciStep, -0.8, 0.156, maxIter);
+                // buffer[i][j] = convergence(cMin + i * cStep, ciMin + j * ciStep, -0.8, 0.156, maxIter);
             }
         }
 
@@ -133,38 +142,44 @@ public class Fractals extends Application {
         }
 
         // log scale
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
-                if (tmp[i][j] != 0.0) {
-                    tmp[i][j] = Math.log(tmp[i][j]) * 30; // todo
+        if (isLogCorrectionNeeded) {
+            for (int i = 0; i < width; i++) {
+                for (int j = 0; j < height; j++) {
+                    if (tmp[i][j] != 0.0) {
+                        tmp[i][j] = Math.log(tmp[i][j]) * 30; // todo
+                    }
                 }
             }
         }
 
         // find black and white points for contrast adjustment
-        double blackPoint = tmp[0][0];
-        double whitePoint = tmp[0][0];
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
-                if (tmp[i][j] > whitePoint) {
-                    whitePoint = tmp[i][j];
-                } else if (tmp[i][j] < blackPoint) {
-                    blackPoint = tmp[i][j];
+        if (isDynamicRangeAdjustmentNeeded) {
+            double blackPoint = tmp[0][0];
+            double whitePoint = tmp[0][0];
+            for (int i = 0; i < width; i++) {
+                for (int j = 0; j < height; j++) {
+                    if (tmp[i][j] > whitePoint) {
+                        whitePoint = tmp[i][j];
+                    } else if (tmp[i][j] < blackPoint) {
+                        blackPoint = tmp[i][j];
+                    }
                 }
             }
-        }
-        System.out.println("blackPoint: " + blackPoint + " whitePoint: " + whitePoint);
-        // dynamic range adjustment
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
-                tmp[i][j] = (tmp[i][j] - blackPoint) / (whitePoint - blackPoint);
+            System.out.println("blackPoint: " + blackPoint + " whitePoint: " + whitePoint);
+            // dynamic range adjustment
+            for (int i = 0; i < width; i++) {
+                for (int j = 0; j < height; j++) {
+                    tmp[i][j] = (tmp[i][j] - blackPoint) / (whitePoint - blackPoint);
+                }
             }
         }
 
         // gamma correction
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
-                tmp[i][j] = Math.pow(tmp[i][j], 1.0 / gamma);
+        if (isGammaCorrectionNeeded) {
+            for (int i = 0; i < width; i++) {
+                for (int j = 0; j < height; j++) {
+                    tmp[i][j] = Math.pow(tmp[i][j], 1.0 / gamma);
+                }
             }
         }
 
@@ -279,9 +294,22 @@ public class Fractals extends Application {
         ciMax = newciMax;
     }
 
+    private void refreshStats() {
+        if (isStatsNeeded) {
+            statsImageView.setImage(fillStatsImage(stats));
+        }
+    }
+
+    private void refreshView() {
+        imageView.setImage(fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter));
+        text.setText("cMin: " + cMin + " cMax: " + cMax + " ciMin: " + ciMin + " ciMax: " + ciMax);
+        refreshStats();
+    }
+
     @Override
     public void start(Stage stage) {
         stage.setTitle("Fractals");
+        stage.setResizable(false);
         stage.setOnCloseRequest(new EventHandler<WindowEvent>() {
             @Override
             public void handle(WindowEvent e) {
@@ -289,7 +317,8 @@ public class Fractals extends Application {
             }
         });
 
-        Button zoomInButton = new Button("Zoom In (+)");
+        Button zoomInButton = new Button();
+        zoomInButton.setText("Zoom In (+)");
         zoomInButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent actionEvent) {
@@ -297,15 +326,14 @@ public class Fractals extends Application {
                     @Override
                     public void run() {
                         adjustCoordinates(0.5, 0.5, scalingRatio);
-                        imageView.setImage(fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter));
-                        text.setText("cMin: " + cMin + " cMax: " + cMax + " ciMin: " + ciMin + " ciMax: " + ciMax);
-                        statsImageView.setImage(fillStatsImage(stats));
+                        refreshView();
                     }
                 }.run();
             }
         });
 
-        Button zoomOutButton = new Button("Zoom Out (-)");
+        Button zoomOutButton = new Button();
+        zoomOutButton.setText("Zoom Out (-)");
         zoomOutButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent actionEvent) {
@@ -313,11 +341,65 @@ public class Fractals extends Application {
                     @Override
                     public void run() {
                         adjustCoordinates(0.5, 0.5, 1.0 / scalingRatio);
-                        imageView.setImage(fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter));
-                        text.setText("cMin: " + cMin + " cMax: " + cMax + " ciMin: " + ciMin + " ciMax: " + ciMax);
-                        statsImageView.setImage(fillStatsImage(stats));
+                        refreshView();
                     }
                 }.run();
+            }
+        });
+
+        CheckBox logCorrectionCheckbox = new CheckBox();
+        logCorrectionCheckbox.setText("Log Correction");
+        logCorrectionCheckbox.setSelected(isLogCorrectionNeeded);
+        logCorrectionCheckbox.setIndeterminate(false);
+        logCorrectionCheckbox.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent actionEvent) {
+                isLogCorrectionNeeded = logCorrectionCheckbox.isSelected();
+                refreshView();
+            }
+        });
+
+        CheckBox gammaCorrectionCheckbox = new CheckBox();
+        gammaCorrectionCheckbox.setText("Gamma Correction");
+        gammaCorrectionCheckbox.setSelected(isGammaCorrectionNeeded);
+        gammaCorrectionCheckbox.setIndeterminate(false);
+        gammaCorrectionCheckbox.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent actionEvent) {
+                isGammaCorrectionNeeded = gammaCorrectionCheckbox.isSelected();
+                refreshView();
+            }
+        });
+
+        /*
+        CheckBox dynamicRangeAdjustmentCheckbox = new CheckBox();
+        dynamicRangeAdjustmentCheckbox.setText("Dynamic Range Adjustment");
+        dynamicRangeAdjustmentCheckbox.setSelected(isDynamicRangeAdjustmentNeeded);
+        dynamicRangeAdjustmentCheckbox.setIndeterminate(false);
+        dynamicRangeAdjustmentCheckbox.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent actionEvent) {
+                isDynamicRangeAdjustmentNeeded = dynamicRangeAdjustmentCheckbox.isSelected();
+                imageView.setImage(fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter));
+                statsImageView.setImage(fillStatsImage(stats));
+            }
+        });
+        */
+
+        CheckBox statsCheckbox = new CheckBox();
+        statsCheckbox.setText("Show stats");
+        statsCheckbox.setSelected(isStatsNeeded);
+        statsCheckbox.setIndeterminate(false);
+        statsCheckbox.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent actionEvent) {
+                isStatsNeeded = statsCheckbox.isSelected();
+                if (isStatsNeeded) {
+                    statsStageGlobal.show();
+                } else {
+                    statsStageGlobal.hide();
+                }
+                // refreshView();
             }
         });
 
@@ -335,9 +417,7 @@ public class Fractals extends Application {
                     @Override
                     public void run() {
                         adjustCoordinates(mouseEvent.getSceneX() / pictureWidth, mouseEvent.getSceneY() / pictureHeight, scalingRatio);
-                        imageView.setImage(fillImage(pictureWidth, pictureHeight, cMin, cMax, ciMin, ciMax, maxIter));
-                        text.setText("cMin: " + cMin + " cMax: " + cMax + " ciMin: " + ciMin + " ciMax: " + ciMax);
-                        statsImageView.setImage(fillStatsImage(stats));
+                        refreshView();
                     }
                 }.run();
             }
@@ -371,14 +451,53 @@ public class Fractals extends Application {
 
         // tmp stats
         Stage statsStage = new Stage();
+        statsStageGlobal = statsStage;
         statsStage.setTitle("stats");
         statsStage.setAlwaysOnTop(true);
+        statsStage.setResizable(false);
+        statsStage.setX(0);
+        statsStage.setY(0);
+        statsStage.setOnCloseRequest(new EventHandler<WindowEvent>() {
+            @Override
+            public void handle(WindowEvent windowEvent) {
+                isStatsNeeded = false;
+                statsCheckbox.setSelected(false);
+            }
+        });
+
         WritableImage statsImage = fillStatsImage(stats);
         statsImageView = new ImageView(statsImage);
         BorderPane statsBorderPane = new BorderPane();
         statsBorderPane.setCenter(statsImageView);
         Scene statsScene = new Scene(statsBorderPane);
         statsStage.setScene(statsScene);
-        statsStage.show();
+        if (isStatsNeeded) {
+            statsStage.show();
+        }
+
+        // tmp controls
+        Stage controlsStage = new Stage();
+        controlsStage.setTitle("controls");
+        controlsStage.setAlwaysOnTop(true);
+        controlsStage.setX(0);
+
+        VBox contolsBox = new VBox();
+        contolsBox.setSpacing(10);
+        contolsBox.setAlignment(Pos.CENTER_LEFT);
+        // todo add controls here
+        contolsBox.getChildren().add(logCorrectionCheckbox);
+        contolsBox.getChildren().add(gammaCorrectionCheckbox);
+        contolsBox.getChildren().add(statsCheckbox);
+        // contolsBox.getChildren().add(dynamicRangeAdjustmentCheckbox);
+        // contolsBox.getChildren().add(text);
+
+
+        // BorderPane controlsBorderPane = new BorderPane();
+        // controlsBorderPane.setCenter(null);
+        // Scene controlsScene = new Scene(controlsBorderPane);
+        Scene controlsScene = new Scene(contolsBox);
+        controlsStage.setScene(controlsScene);
+        controlsStage.show();
+
     }
 }
