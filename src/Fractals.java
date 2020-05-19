@@ -21,6 +21,8 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.RadioButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.PixelWriter;
@@ -48,7 +50,7 @@ public class Fractals extends Application {
     double ciMax = (cMax - cMin) / pictureWidth * pictureHeight * .5;
     double ciMin = -ciMax;
     final int maxIter = 4096;
-    tupleRGB[] colorsRGB = initColors();
+    TupleRGB[] colorsRGB = initColors();
     int[] stats = new int[256];
     double gamma = 2.2;
     byte[] imageByteData;
@@ -56,7 +58,7 @@ public class Fractals extends Application {
     ImageView statsImageView;
     Text text;
     Stage statsStageGlobal;
-
+    TypeOfSet typeOfSet = TypeOfSet.MANDELBROT;
 
     boolean isLogCorrectionNeeded = true;
     boolean isGammaCorrectionNeeded = true;
@@ -102,14 +104,22 @@ public class Fractals extends Application {
         double ciStep = (ciMax - ciMin) / height;
 
         // get raw data
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
-                // mandelbrot set
-                buffer[i][j] = convergence(0, 0, cMin + i * cStep, ciMin + j * ciStep, maxIter);
-                // julia set
-                // buffer[i][j] = convergence(cMin + i * cStep, ciMin + j * ciStep, -0.8, 0.156, maxIter);
+        if (typeOfSet == TypeOfSet.MANDELBROT) {
+            for (int i = 0; i < width; i++) {
+                for (int j = 0; j < height; j++) {
+                    // mandelbrot set
+                    buffer[i][j] = convergence(0, 0, cMin + i * cStep, ciMin + j * ciStep, maxIter);
+                }
+            }
+        } else if (typeOfSet == TypeOfSet.JULIA) {
+            for (int i = 0; i < width; i++) {
+                for (int j = 0; j < height; j++) {
+                    // julia set
+                    buffer[i][j] = convergence(cMin + i * cStep, ciMin + j * ciStep, -0.8, 0.156, maxIter);
+                }
             }
         }
+
 
         // find minimum value for black point adjustment
         int bufMin = buffer[0][0];
@@ -219,17 +229,22 @@ public class Fractals extends Application {
         return writableImage;
     }
 
-    private class tupleRGB {
+    private class TupleRGB {
         public int red, green, blue;
 
-        public tupleRGB(int red, int green, int blue) {
+        public TupleRGB(int red, int green, int blue) {
             this.red = red;
             this.green = green;
             this.blue = blue;
         }
     }
 
-    private tupleRGB spectralColor(double lambda) // RGB <0,1> <- lambda l <400,700> [nm]
+    private enum TypeOfSet {
+        MANDELBROT,
+        JULIA
+    }
+
+    private TupleRGB spectralColor(double lambda) // RGB <0,1> <- lambda l <400,700> [nm]
     {
         double t;
         double red = 0.0, green = 0.0, blue = 0.0;
@@ -270,11 +285,11 @@ public class Fractals extends Application {
             t = (lambda - 475.0) / (560.0 - 475.0);
             blue = 0.7 - (t) + (0.30 * t * t);
         }
-        return new tupleRGB((int) Math.round(255 * red), (int) Math.round(255 * green), (int) Math.round(255 * blue));
+        return new TupleRGB((int) Math.round(255 * red), (int) Math.round(255 * green), (int) Math.round(255 * blue));
     }
 
-    private tupleRGB[] initColors() {
-        colorsRGB = new tupleRGB[256];
+    private TupleRGB[] initColors() {
+        colorsRGB = new TupleRGB[256];
         for (int i = 0; i < colorsRGB.length; i++) {
             colorsRGB[i] = spectralColor(400.0 + (700.0 - 400.0) * i / 255.0);
         }
@@ -403,6 +418,40 @@ public class Fractals extends Application {
             }
         });
 
+        ToggleGroup toggleGroup = new ToggleGroup();
+        RadioButton radioButtonMandelbrot = new RadioButton();
+        radioButtonMandelbrot.setText("Mandelbrot");
+        if (typeOfSet == TypeOfSet.MANDELBROT) {
+            radioButtonMandelbrot.setSelected(true);
+        }
+        radioButtonMandelbrot.setToggleGroup(toggleGroup);
+        RadioButton radioButtonJulia = new RadioButton();
+        radioButtonJulia.setText("Julia");
+        radioButtonJulia.setToggleGroup(toggleGroup);
+        if (typeOfSet == TypeOfSet.JULIA) {
+            radioButtonJulia.setSelected(true);
+        }
+
+        radioButtonMandelbrot.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent actionEvent) {
+                if (radioButtonMandelbrot.isSelected()) {
+                    typeOfSet = TypeOfSet.MANDELBROT;
+                    refreshView();
+                }
+            }
+        });
+
+        radioButtonJulia.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent actionEvent) {
+                if (radioButtonJulia.isSelected()) {
+                    typeOfSet = TypeOfSet.JULIA;
+                    refreshView();
+                }
+            }
+        });
+
         ChangeListener<Number> numberChangeListener = new ChangeListener<Number>() {
             @Override
             public void changed(ObservableValue<? extends Number> observableValue, Number number, Number t1) {
@@ -481,6 +530,7 @@ public class Fractals extends Application {
         controlsStage.setAlwaysOnTop(true);
         controlsStage.setX(0);
 
+
         VBox contolsBox = new VBox();
         contolsBox.setSpacing(10);
         contolsBox.setAlignment(Pos.CENTER_LEFT);
@@ -488,6 +538,8 @@ public class Fractals extends Application {
         contolsBox.getChildren().add(logCorrectionCheckbox);
         contolsBox.getChildren().add(gammaCorrectionCheckbox);
         contolsBox.getChildren().add(statsCheckbox);
+        contolsBox.getChildren().add(radioButtonMandelbrot);
+        contolsBox.getChildren().add(radioButtonJulia);
         // contolsBox.getChildren().add(dynamicRangeAdjustmentCheckbox);
         // contolsBox.getChildren().add(text);
 
